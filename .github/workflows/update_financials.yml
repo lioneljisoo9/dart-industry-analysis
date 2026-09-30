@@ -1,0 +1,74 @@
+name: Update DART financials
+
+on:
+  workflow_dispatch:
+  schedule:
+    # GitHub cron은 UTC 기준. 00:00 UTC = 한국시간 09:00.
+    - cron: "0 0 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run data-engine tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Refresh DART master data
+        env:
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+          DART_ANNUAL_COUNT: "5"
+          DART_QUARTER_COUNT: "20"
+          DART_FS_DIV: "AUTO"
+        run: python scripts/update_financials.py
+
+      - name: Validate refreshed master data
+        run: python scripts/validate_financials.py
+
+      - name: Build annual KPI master
+        run: python scripts/build_metrics.py
+
+      - name: Publish Notion dashboard
+        if: ${{ secrets.NOTION_TOKEN != '' && secrets.NOTION_PAGE_ID != '' }}
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_PAGE_ID: ${{ secrets.NOTION_PAGE_ID }}
+        run: python scripts/publish_notion.py
+
+      - name: Commit changed master data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/master data/processed
+          if git diff --cached --quiet; then
+            echo "No master data changes"
+          else
+            git commit -m "Update DART master data"
+            git push
+          fi
+
+      - name: Upload refreshed Excel workbooks
+        uses: actions/upload-artifact@v4
+        with:
+          name: dart-financial-workbooks
+          path: outputs/excel/*.xlsx
+          if-no-files-found: error
+          retention-days: 14
+

@@ -1,0 +1,24 @@
+# Virtual environment
+.venv/
+.venv-*/
+
+# Environment variables
+.env
+
+# Python cache
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# VS Code
+.vscode/
+
+# Generated files
+outputs/
+
+# Local corp-code cache
+data/cache/
+
+# Local immutable DART source responses
+data/raw/
+
