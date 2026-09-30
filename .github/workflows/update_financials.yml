@@ -45,8 +45,21 @@ jobs:
       - name: Build annual KPI master
         run: python scripts/build_metrics.py
 
+      - name: Check Notion configuration
+        id: notion_config
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_PAGE_ID: ${{ secrets.NOTION_PAGE_ID }}
+        shell: bash
+        run: |
+          if [[ -n "$NOTION_TOKEN" && -n "$NOTION_PAGE_ID" ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Publish Notion dashboard
-        if: ${{ secrets.NOTION_TOKEN != '' && secrets.NOTION_PAGE_ID != '' }}
+        if: ${{ steps.notion_config.outputs.enabled == 'true' }}
         env:
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
           NOTION_PAGE_ID: ${{ secrets.NOTION_PAGE_ID }}
